@@ -246,4 +246,132 @@ class LS100(object):
         that the device is setup correctly but then, after the first
         successful reading, set it higher.
         """
+        self.maxAttempts=maxAttempts
+
+import usb
+import time
+
+class dummyCom:
+
+    def __init__(self, open=False):
+        self.setOpen(open)
+        
+    def setOpen(self, open):
+        self.isOpen=open
+        
+    def close(self):
+        return True
+
+class CS200:
+
+    longName = "Minolta CS-200"
+    driverFor = ["cs200"]
+    
+    def __init__(self, port=None, maxAttempts=3):
+        #the port argument is never used, 
+        #but it is used when the constructor is called by hardware.__init__()
+    
+        # find our device
+        self.OK = True
+        self.maxAttempts = maxAttempts
+        
+        # these arguments are called by the rest of the program
+        # but those that deal with serial ports are pointless
+        self.portString = 'USB'
+        self.portNumber = None
+        self.isOpen = 0
+        self.lastQual = 0
+        self.lastLum=None
+        self.type='CS200'
+        self.com = dummyCom()
+        
+        self.connect()
+        
+    def connect(self):
+        self.dev = usb.core.find(idProduct=0x2101, idVendor=0x132b)
+
+        # was it found?
+        if self.dev is None:
+            self.OK = False
+            self.isOpen = 0
+            self.com.setOpen(False)
+            return 'device not found'
+
+        # write the data
+        try:
+            self.dev.write(0x02, 'RMT,1\r\n')
+        except:
+            self.OK = False
+            self.isOpen = 0
+            self.com.setOpen(False)
+            return 'write failed'
+        try:
+            data = self.dev.read(0x82, 250)
+            if not self.checkOK(data):
+                self.OK = False
+                self.isOpen = 0
+                self.com.setOpen(False)
+        except:
+            self.OK = False
+            self.isOpen = 0
+            self.com.setOpen(False)
+            return 'read failed'
+        
+        self.OK = True
+        self.isOpen = 1
+        self.com.setOpen(True)
+        return 'connected'
+        
+    def checkOK(self, msg):
+        if msg[0:2] != 'OK':
+            return False
+        else:
+            return True
+
+
+    def sendMessage(self, message):
+        try:
+            self.dev.write(0x02, message)
+            data = self.dev.read(0x82, 250)
+            return ''.join(chr(i) for i in data)
+        except:
+            return []
+            
+    def takeReading(self):
+        try:
+            self.dev.write(0x02, 'MES,1\r\n')
+            data = self.dev.read(0x82, 250)
+            reply1 = ''.join(chr(i) for i in data)
+        except:
+            pass
+            
+    def getLum(self):
+
+        self.takeReading()
+        time.sleep(1)
+
+        try:
+            self.dev.write(0x02, 'MDR,0\r\n')
+            data = self.dev.read(0x82, 250)
+            reply = ''.join(chr(i) for i in data)
+            
+            attemptCounter = 0
+            
+            while (reply[:4] == 'ER02') and attemptCounter < self.maxAttempts:
+                attemptCounter += 1
+                time.sleep(0.3)
+                self.dev.write(0x02, 'MDR,0\r\n')
+                data = self.dev.read(0x82, 250)
+                reply = ''.join(chr(i) for i in data)
+            #OK00,*,*,*,**,*,*****,*,**,***********,***********,***********
+            #since we want the third last entry, we want characters 27 to 38
+            if (reply[:4] == 'OK00'):
+                return float(reply [27:38])
+            else:
+                return None
+            
+        except:
+            return None
+            
+    def setMaxAttemps(self, maxAttempts):
         self.maxAttempts = maxAttempts

@@ -67,7 +67,7 @@ def getAllPhotometers():
     from . import minolta, pr
     from . import crs
 
-    photometers = [pr.PR650, pr.PR655, minolta.LS100]
+    photometers = [pr.PR650, pr.PR655, minolta.LS100, minolta.CS200]
     if hasattr(crs, "ColorCAL"):
         photometers.append(crs.ColorCAL)
 
@@ -179,6 +179,19 @@ def findPhotometer(ports=None, device=None):
                 if photom.com and photom.com.isOpen:
                     logging.info('closing port')
                     photom.com.close()
+    
+    import minolta
+    if minolta.CS200 in photometers:
+        try:
+            photom = minolta.CS200()
+        except Exception as ex:
+            logging.error("Couldn't initialize photometer {0}: {1}".format(Photometer.__name__,ex))
+        if photom and photom.OK: 
+            logging.info(' ...found a %s\n' %(photom.type)); logging.flush()
+            #we're now sure that this is the correct device and that it's configured
+            #now increase the number of attempts made to communicate for temperamental devices!
+            if hasattr(photom,'setMaxAttempts'):photom.setMaxAttempts(10)
+            return photom#we found one so stop looking
 
         # If we got here we didn't find one
         logging.info('...nope!\n\t')
