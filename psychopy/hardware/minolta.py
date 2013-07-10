@@ -299,6 +299,8 @@ class CS200:
 
         # write the data
         try:
+            if sys.platform == 'darwin':
+                self.dev.set_configuration()
             self.dev.write(0x02, 'RMT,1\r\n')
         except:
             self.OK = False
