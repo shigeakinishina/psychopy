@@ -7,6 +7,8 @@ See http://www.konicaminolta.com/instruments
 # Copyright (C) 2015 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
+import sys, time, usb
+
 from psychopy import logging
 import struct
 import sys
@@ -248,8 +250,6 @@ class LS100(object):
         """
         self.maxAttempts=maxAttempts
 
-import usb
-import time
 
 class dummyCom:
 
@@ -262,7 +262,7 @@ class dummyCom:
     def close(self):
         return True
 
-class CS200:
+class CS200(object):
 
     longName = "Minolta CS-200"
     driverFor = ["cs200"]
@@ -274,6 +274,7 @@ class CS200:
         # find our device
         self.OK = True
         self.maxAttempts = maxAttempts
+        self.device = None
         
         # these arguments are called by the rest of the program
         # but those that deal with serial ports are pointless
@@ -281,17 +282,17 @@ class CS200:
         self.portNumber = None
         self.isOpen = 0
         self.lastQual = 0
-        self.lastLum=None
-        self.type='CS200'
+        self.lastLum = None
+        self.type = 'CS200'
         self.com = dummyCom()
         
         self.connect()
         
     def connect(self):
-        self.dev = usb.core.find(idProduct=0x2101, idVendor=0x132b)
+        self.device = usb.core.find(idProduct=0x2101, idVendor=0x132b)
 
         # was it found?
-        if self.dev is None:
+        if self.device is None:
             self.OK = False
             self.isOpen = 0
             self.com.setOpen(False)
@@ -300,15 +301,15 @@ class CS200:
         # write the data
         try:
             if sys.platform == 'darwin':
-                self.dev.set_configuration()
-            self.dev.write(0x02, 'RMT,1\r\n')
+                self.device.set_configuration()
+            self.device.write(0x02, 'RMT,1\r\n')
         except:
             self.OK = False
             self.isOpen = 0
             self.com.setOpen(False)
             return 'write failed'
         try:
-            data = self.dev.read(0x82, 250)
+            data = self.device.read(0x82, 250)
             if not self.checkOK(data):
                 self.OK = False
                 self.isOpen = 0
@@ -325,55 +326,51 @@ class CS200:
         return 'connected'
         
     def checkOK(self, msg):
-        if msg[0:2] != 'OK':
-            return False
-        else:
-            return True
-
+        return len(msg) >= 2 and msg[0:2] == 'OK'
 
     def sendMessage(self, message):
         try:
-            self.dev.write(0x02, message)
-            data = self.dev.read(0x82, 250)
+            self.device.write(0x02, message)
+            data = self.device.read(0x82, 250)
             return ''.join(chr(i) for i in data)
         except:
-            return []
+            return '' 
             
     def takeReading(self):
         try:
-            self.dev.write(0x02, 'MES,1\r\n')
-            data = self.dev.read(0x82, 250)
-            reply1 = ''.join(chr(i) for i in data)
+            self.device.write(0x02, 'MES,1\r\n')
+            self.device.read(0x82, 250)
         except:
             pass
             
     def getLum(self):
-
+        # clear buffer
         self.takeReading()
         time.sleep(1)
 
-        try:
-            self.dev.write(0x02, 'MDR,0\r\n')
-            data = self.dev.read(0x82, 250)
-            reply = ''.join(chr(i) for i in data)
-            
-            attemptCounter = 0
-            
-            while (reply[:4] == 'ER02') and attemptCounter < self.maxAttempts:
-                attemptCounter += 1
-                time.sleep(0.3)
-                self.dev.write(0x02, 'MDR,0\r\n')
-                data = self.dev.read(0x82, 250)
-                reply = ''.join(chr(i) for i in data)
+        message =  'MDR,0\r\n'
+        reply = self.sendMessage(message)
+
+        attemptCounter = 0
+        while not self.checkOK(reply) and attemptCounter < self.maxAttempts:
+            time.sleep(0.3)
+            reply = self.sendMessage(message)
+            attemptCounter += 1
+
+        if self.checkOK(reply):
             #OK00,*,*,*,**,*,*****,*,**,***********,***********,***********
             #since we want the third last entry, we want characters 27 to 38
-            if (reply[:4] == 'OK00'):
-                return float(reply [27:38])
-            else:
-                return None
+            luminance = float(reply[27:38])
+            return luminance
+
+        if len(reply) < 1:
+            msg = 'No reply from CS200'
+        else:
+            errorCode = reply[0:4]
+            msg = 'Error message from CS200:%s' % errorCode
+        logging.error(msg)
+        print(msg)
+        return -1
             
-        except:
-            return None
-            
-    def setMaxAttemps(self, maxAttempts):
+    def setMaxAttempts(self, maxAttempts):
         self.maxAttempts = maxAttempts
