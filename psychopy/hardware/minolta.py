@@ -7,12 +7,11 @@ See http://www.konicaminolta.com/instruments
 # Copyright (C) 2015 Jonathan Peirce
 # Distributed under the terms of the GNU General Public License (GPL).
 
-import sys, time, usb
-
 from psychopy import logging
 import struct
 import sys
 import time
+import usb
 
 try:
     import serial
