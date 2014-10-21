@@ -255,10 +255,10 @@ class dummyCom:
 
     def __init__(self, open=False):
         self.setOpen(open)
-        
+
     def setOpen(self, open):
         self.isOpen=open
-        
+
     def close(self):
         return True
 
@@ -266,16 +266,16 @@ class CS200(object):
 
     longName = "Minolta CS-200"
     driverFor = ["cs200"]
-    
+
     def __init__(self, port=None, maxAttempts=3):
-        #the port argument is never used, 
+        #the port argument is never used,
         #but it is used when the constructor is called by hardware.__init__()
-    
+
         # find our device
         self.OK = True
         self.maxAttempts = maxAttempts
         self.device = None
-        
+
         # these arguments are called by the rest of the program
         # but those that deal with serial ports are pointless
         self.portString = 'USB'
@@ -285,9 +285,9 @@ class CS200(object):
         self.lastLum = None
         self.type = 'CS200'
         self.com = dummyCom()
-        
+
         self.connect()
-        
+
     def connect(self):
         self.device = usb.core.find(idProduct=0x2101, idVendor=0x132b)
 
@@ -319,12 +319,12 @@ class CS200(object):
             self.isOpen = 0
             self.com.setOpen(False)
             return 'read failed'
-        
+
         self.OK = True
         self.isOpen = 1
         self.com.setOpen(True)
         return 'connected'
-        
+
     def checkOK(self, msg):
         return len(msg) >= 2 and msg[0:2] == 'OK'
 
@@ -334,15 +334,15 @@ class CS200(object):
             data = self.device.read(0x82, 250)
             return ''.join(chr(i) for i in data)
         except:
-            return '' 
-            
+            return ''
+
     def takeReading(self):
         try:
             self.device.write(0x02, 'MES,1\r\n')
             self.device.read(0x82, 250)
         except:
             pass
-            
+
     def getLum(self):
         # clear buffer
         self.takeReading()
@@ -371,6 +371,6 @@ class CS200(object):
         logging.error(msg)
         print(msg)
         return -1
-            
+
     def setMaxAttempts(self, maxAttempts):
         self.maxAttempts = maxAttempts
