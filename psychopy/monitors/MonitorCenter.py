@@ -1017,9 +1017,9 @@ class MainFrame(wx.Frame):
         lumsPre = self.currentMon.getLumsPre()
         levelsPre = self.currentMon.getLevelsPre()
         lumsPost = self.currentMon.getLumsPost()
-        if lumsPre != None:
+        if lumsPre.any != None:
             colors = 'krgb'
-            xxSmooth = monitors.numpy.arange(0, 255.5, 0.5)
+            xxSmooth = numpy.arange(0, 255.5, 0.5)
             eq = self.currentMon.getLinearizeMethod()
             for gun in range(4):  # includes lum
                 gamma = gammaGrid[gun, 2]
@@ -1051,7 +1051,7 @@ class MainFrame(wx.Frame):
 
             lumsPost = self.currentMon.getLumsPost()
             levelsPost = self.currentMon.getLevelsPost()
-        if lumsPost != None:
+        if lumsPost.any != None:
             for gun in range(4):  # includes lum,r,g,b
                 lums = lumsPost[gun, :]
                 gamma = gammaGrid[gun, 2]
